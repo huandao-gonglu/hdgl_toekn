@@ -6886,6 +6886,7 @@ async function saveBetaPolicySettings() {
 
 const allPaymentTypes = computed(() => [
   { value: "easypay", label: t("payment.methods.easypay") },
+  { value: "fastpay", label: t("payment.methods.fastpay") },
   { value: "alipay", label: t("payment.methods.alipay") },
   { value: "wxpay", label: t("payment.methods.wxpay") },
   { value: "stripe", label: t("payment.methods.stripe") },
@@ -6942,6 +6943,7 @@ const providerDialogRef = ref<InstanceType<
 
 const providerKeyOptions = computed(() => [
   { value: "easypay", label: t("admin.settings.payment.providerEasypay") },
+  { value: "fastpay", label: t("admin.settings.payment.providerFastpay") },
   { value: "alipay", label: t("admin.settings.payment.providerAlipay") },
   { value: "wxpay", label: t("admin.settings.payment.providerWxpay") },
   { value: "stripe", label: t("admin.settings.payment.providerStripe") },
@@ -7026,7 +7028,7 @@ function getProviderVisibleMethods(
         }
       });
     }
-  } else if (provider.provider_key === "easypay") {
+  } else if (provider.provider_key === "easypay" || provider.provider_key === "fastpay") {
     supportedTypes.forEach(addMethod);
   }
 

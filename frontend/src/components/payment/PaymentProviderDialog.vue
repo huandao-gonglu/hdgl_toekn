@@ -34,7 +34,7 @@
         <ToggleSwitch :label="t('common.enabled')" :checked="form.enabled" @toggle="form.enabled = !form.enabled" />
         <ToggleSwitch :label="t('admin.settings.payment.refundEnabled')" :checked="form.refund_enabled" @toggle="form.refund_enabled = !form.refund_enabled; if (!form.refund_enabled) form.allow_user_refund = false" />
         <ToggleSwitch v-if="form.refund_enabled" :label="t('admin.settings.payment.allowUserRefund')" :checked="form.allow_user_refund" @toggle="form.allow_user_refund = !form.allow_user_refund" />
-        <div v-if="form.provider_key === 'easypay'" class="flex items-center gap-2">
+        <div v-if="form.provider_key === 'easypay' || form.provider_key === 'fastpay'" class="flex items-center gap-2">
           <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.paymentMode') }}</span>
           <div class="flex gap-1.5">
             <button
@@ -445,6 +445,7 @@ function toggleType(type: string) {
 
 function onKeyChange() {
   form.supported_types = [...(PROVIDER_SUPPORTED_TYPES[form.provider_key] || [])]
+  form.payment_mode = form.provider_key === 'easypay' ? PAYMENT_MODE_QRCODE : form.provider_key === 'fastpay' ? PAYMENT_MODE_POPUP : ''
   clearConfig()
   applyDefaults()
 }
@@ -550,7 +551,7 @@ function handleSave() {
     name: form.name,
     supported_types: form.supported_types,
     enabled: form.enabled,
-    payment_mode: form.provider_key === 'easypay' ? form.payment_mode : '',
+    payment_mode: form.provider_key === 'easypay' || form.provider_key === 'fastpay' ? form.payment_mode : '',
     refund_enabled: form.refund_enabled,
     allow_user_refund: form.refund_enabled ? form.allow_user_refund : false,
     config: filteredConfig,
@@ -570,7 +571,7 @@ function reset(defaultKey: string) {
   form.provider_key = defaultKey
   form.supported_types = [...(PROVIDER_SUPPORTED_TYPES[defaultKey] || [])]
   form.enabled = true
-  form.payment_mode = defaultKey === 'easypay' ? PAYMENT_MODE_QRCODE : ''
+  form.payment_mode = defaultKey === 'easypay' ? PAYMENT_MODE_QRCODE : defaultKey === 'fastpay' ? PAYMENT_MODE_POPUP : ''
   form.refund_enabled = false
   form.allow_user_refund = false
   clearConfig()
@@ -582,7 +583,7 @@ function loadProvider(provider: ProviderInstance) {
   form.provider_key = provider.provider_key
   form.supported_types = provider.supported_types
   form.enabled = provider.enabled
-  form.payment_mode = provider.payment_mode || (provider.provider_key === 'easypay' ? PAYMENT_MODE_QRCODE : '')
+  form.payment_mode = provider.payment_mode || (provider.provider_key === 'easypay' ? PAYMENT_MODE_QRCODE : provider.provider_key === 'fastpay' ? PAYMENT_MODE_POPUP : '')
   form.refund_enabled = provider.refund_enabled
   form.allow_user_refund = provider.allow_user_refund
   clearConfig()

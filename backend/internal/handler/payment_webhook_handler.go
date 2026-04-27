@@ -60,6 +60,12 @@ func (h *PaymentWebhookHandler) StripeWebhook(c *gin.Context) {
 	h.handleNotify(c, payment.TypeStripe)
 }
 
+// FastPayNotify handles FastPay payment notifications.
+// POST /api/v1/payment/webhook/fastpay
+func (h *PaymentWebhookHandler) FastPayNotify(c *gin.Context) {
+	h.handleNotify(c, payment.TypeFastPay)
+}
+
 // handleNotify is the shared logic for all provider webhook handlers.
 func (h *PaymentWebhookHandler) handleNotify(c *gin.Context, providerKey string) {
 	var rawBody string
@@ -141,10 +147,13 @@ func (h *PaymentWebhookHandler) handleNotify(c *gin.Context, providerKey string)
 // This allows looking up the correct provider instance before verification.
 func extractOutTradeNo(rawBody, providerKey string) string {
 	switch providerKey {
-	case payment.TypeEasyPay, payment.TypeAlipay:
+	case payment.TypeEasyPay, payment.TypeAlipay, payment.TypeFastPay:
 		values, err := url.ParseQuery(rawBody)
 		if err == nil {
-			return values.Get("out_trade_no")
+			if outTradeNo := values.Get("out_trade_no"); outTradeNo != "" {
+				return outTradeNo
+			}
+			return values.Get("outTradeNo")
 		}
 	}
 	// For other providers (Stripe, Alipay direct, WxPay direct), the registry

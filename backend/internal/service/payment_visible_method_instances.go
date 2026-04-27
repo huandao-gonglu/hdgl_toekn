@@ -45,7 +45,7 @@ func enabledVisibleMethodsForProvider(providerKey, supportedTypes string) []stri
 				break
 			}
 		}
-	case payment.TypeEasyPay:
+	case payment.TypeEasyPay, payment.TypeFastPay:
 		for _, supportedType := range splitTypes(supportedTypes) {
 			addMethod(supportedType)
 		}
