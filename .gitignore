@@ -119,6 +119,9 @@ tests
 CLAUDE.md
 .claude
 scripts
+!scripts/
+!scripts/deploy-sub2api-local.sh
+!scripts/test-deploy-sub2api-local.sh
 .code-review-state
 #openspec/
 code-reviews/

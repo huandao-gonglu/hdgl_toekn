@@ -50,8 +50,8 @@ func TestFastPayCreatePaymentPostsSignedJSONAndReturnsHostedPage(t *testing.T) {
 			t.Fatal("missing sign")
 		}
 		params := map[string]string{}
-		for k, v := range gotReq {
-			if s, ok := v.(string); ok {
+		for _, k := range []string{"merchantNo", "outTradeNo", "shopNo", "payType", "amount", "subject", "timestamp", "returnUrl"} {
+			if s, ok := gotReq[k].(string); ok {
 				params[k] = s
 			}
 		}

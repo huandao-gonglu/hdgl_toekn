@@ -129,7 +129,7 @@ func (f *FastPay) CreatePayment(ctx context.Context, req payment.CreatePaymentRe
 		"notifyUrl":  notifyURL,
 		"returnUrl":  returnURL,
 	}
-	params["sign"] = fastPaySign(params, f.config["apiSecret"])
+	params["sign"] = fastPaySign(fastPayCreateSignParams(params), f.config["apiSecret"])
 
 	body, err := f.postJSON(ctx, f.config["apiBase"]+"/api/pay/create", params)
 	if err != nil {
@@ -352,4 +352,14 @@ func fastPayAnyString(v any) string {
 	default:
 		return ""
 	}
+}
+
+func fastPayCreateSignParams(params map[string]string) map[string]string {
+	signParams := make(map[string]string, 8)
+	for _, key := range []string{"merchantNo", "outTradeNo", "shopNo", "payType", "amount", "subject", "timestamp", "returnUrl"} {
+		if value := strings.TrimSpace(params[key]); value != "" {
+			signParams[key] = value
+		}
+	}
+	return signParams
 }
