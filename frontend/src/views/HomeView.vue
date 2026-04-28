@@ -23,7 +23,7 @@
         class="absolute -right-40 -top-40 h-96 w-96 rounded-full bg-primary-400/20 blur-3xl"
       ></div>
       <div
-        class="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-primary-500/15 blur-3xl"
+        class="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-primary-500/20 blur-3xl"
       ></div>
       <div
         class="absolute left-1/3 top-1/4 h-72 w-72 rounded-full bg-primary-300/10 blur-3xl"
@@ -211,7 +211,7 @@
             class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
           >
             <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30 transition-transform group-hover:scale-110"
+              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 shadow-lg shadow-primary-500/30 transition-transform group-hover:scale-110"
             >
               <Icon name="server" size="lg" class="text-white" />
             </div>
@@ -257,7 +257,7 @@
             class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
           >
             <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-500/30 transition-transform group-hover:scale-110"
+              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-accent-700 to-black shadow-lg shadow-primary-500/20 transition-transform group-hover:scale-110 dark:from-dark-700 dark:to-black"
             >
               <svg
                 class="h-6 w-6 text-white"
@@ -298,7 +298,7 @@
             class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
           >
             <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-orange-500"
+              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent-700 to-black dark:from-dark-600 dark:to-black"
             >
               <span class="text-xs font-bold text-white">C</span>
             </div>
@@ -313,7 +313,7 @@
             class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
           >
             <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-green-600"
+              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-700"
             >
               <span class="text-xs font-bold text-white">G</span>
             </div>
@@ -328,7 +328,7 @@
             class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
           >
             <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600"
+              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent-500 to-accent-800"
             >
               <span class="text-xs font-bold text-white">G</span>
             </div>
@@ -490,7 +490,7 @@ onMounted(() => {
 /* Terminal Window */
 .terminal-window {
   width: 420px;
-  background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+  background: linear-gradient(145deg, #27272a 0%, #050505 100%);
   border-radius: 14px;
   box-shadow:
     0 25px 50px -12px rgba(0, 0, 0, 0.4),
@@ -526,10 +526,10 @@ onMounted(() => {
 }
 
 .btn-close {
-  background: #ef4444;
+  background: #71717a;
 }
 .btn-minimize {
-  background: #eab308;
+  background: #d4d4d8;
 }
 .btn-maximize {
   background: #22c55e;
@@ -540,7 +540,7 @@ onMounted(() => {
   text-align: center;
   font-size: 12px;
   font-family: ui-monospace, monospace;
-  color: #64748b;
+  color: #a1a1aa;
   margin-right: 52px;
 }
 
@@ -590,16 +590,16 @@ onMounted(() => {
   font-weight: bold;
 }
 .code-cmd {
-  color: #38bdf8;
+  color: #e4e4e7;
 }
 .code-flag {
-  color: #a78bfa;
+  color: #86efac;
 }
 .code-url {
-  color: #14b8a6;
+  color: #4ade80;
 }
 .code-comment {
-  color: #64748b;
+  color: #71717a;
   font-style: italic;
 }
 .code-success {
@@ -610,7 +610,7 @@ onMounted(() => {
   font-weight: 600;
 }
 .code-response {
-  color: #fbbf24;
+  color: #f4f4f5;
 }
 
 /* Blinking Cursor */

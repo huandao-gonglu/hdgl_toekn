@@ -267,11 +267,23 @@ rm -rf {quote(remote_build_dir)}
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Build frontend locally, cross-compile the Linux Go binary locally, "
-            "upload runtime artifacts, build the remote runtime image, and restart sub2api."
+            "Package and/or publish Sub2API runtime artifacts. The default deploy mode "
+            "builds frontend, cross-compiles the Linux Go binary, uploads artifacts, "
+            "builds the remote runtime image, and restarts sub2api."
         )
     )
     parser.add_argument("--dry-run", action="store_true", help="Print commands without executing them")
+    parser.add_argument(
+        "--mode",
+        choices=("package", "publish", "deploy"),
+        default=env_default("DEPLOY_MODE", "deploy"),
+        help="Operation mode: package only, publish an existing archive, or package and publish",
+    )
+    parser.add_argument(
+        "--archive",
+        default=env_default("ARCHIVE", ""),
+        help="Runtime archive path to create (package/deploy) or publish (publish)",
+    )
     parser.add_argument("--skip-frontend-build", action="store_true", help="Reuse existing backend/internal/web/dist")
     parser.add_argument("--skip-local-build", action="store_true", help="Reuse existing local runtime payload")
     parser.add_argument("--skip-build", action="store_true", help="Skip remote Docker image build and only update/restart")
@@ -330,11 +342,16 @@ def main() -> None:
     safe_name = safe_artifact_name(args.image_repo, image_tag)
     temp_parent = Path(os.environ.get("TMPDIR") or os.environ.get("TEMP") or os.environ.get("TMP") or "/tmp")
     payload_dir = temp_parent / f"{safe_name}-payload"
-    local_archive = temp_parent / f"{safe_name}-runtime.tgz"
+    local_archive = Path(args.archive).expanduser() if args.archive else temp_parent / f"{safe_name}-runtime.tgz"
+    if not local_archive.is_absolute():
+        local_archive = (REPO_ROOT / local_archive).resolve()
     remote_tmp_dir = args.remote_tmp_dir.rstrip("/")
-    remote_archive = f"{remote_tmp_dir}/{safe_name}-runtime.tgz"
+    remote_archive = f"{remote_tmp_dir}/{local_archive.name}"
     remote_build_dir = f"{remote_tmp_dir}/{safe_name}-build"
     remote_target = f"{args.remote_user}@{args.remote_host}"
+
+    if args.mode == "publish" and not args.archive:
+        die("--mode publish requires --archive")
 
     ldflags = (
         f"-s -w -X main.Version={version_value} -X main.Commit={commit_value} "
@@ -350,24 +367,28 @@ def main() -> None:
     )
 
     if not args.dry_run:
-        require_cmd("go")
-        require_cmd("scp")
-        require_cmd("ssh")
-        if not args.skip_frontend_build and shutil.which("pnpm") is None:
+        if args.mode in {"package", "deploy"}:
+            require_cmd("go")
+        if args.mode in {"publish", "deploy"}:
+            require_cmd("scp")
+            require_cmd("ssh")
+        if args.mode in {"package", "deploy"} and not args.skip_frontend_build and shutil.which("pnpm") is None:
             require_cmd("corepack")
             os.environ.setdefault("COREPACK_ENABLE_DOWNLOAD_PROMPT", "0")
-        if not args.no_health_check:
+        if args.mode in {"publish", "deploy"} and not args.no_health_check:
             require_cmd("curl")
 
     pnpm_cmd = ["pnpm"] if args.dry_run or shutil.which("pnpm") is not None else ["corepack", "pnpm"]
 
     print(f"Deploy image: {image}")
+    print(f"Mode:         {args.mode}")
+    print(f"Archive:      {local_archive}")
     print(f"Remote host:  {args.remote_host}:{args.remote_port}")
     print(f"Remote dir:   {args.remote_dir}")
     print(f"Target:       {args.goos}/{args.goarch}")
 
     try:
-        if not args.skip_local_build:
+        if args.mode in {"package", "deploy"} and not args.skip_local_build:
             remove_tree(payload_dir, runner)
             make_dir(payload_dir, runner)
 
@@ -416,7 +437,14 @@ def main() -> None:
             if xattr is not None:
                 runner.run([xattr, "-cr", payload_dir])
 
-        create_archive(local_archive, payload_dir, runner)
+        if args.mode in {"package", "deploy"}:
+            create_archive(local_archive, payload_dir, runner)
+
+        if args.mode == "package":
+            print(f"Runtime archive ready: {local_archive}")
+            return
+
+        require_file(local_archive, str(local_archive), runner)
         runner.run(["scp", "-P", args.remote_port, local_archive, f"{remote_target}:{remote_archive}"])
 
         ssh_cmd = ["ssh", "-p", args.remote_port, remote_target, "bash", "-s"]
@@ -432,9 +460,11 @@ def main() -> None:
             if not args.dry_run:
                 print()
     finally:
-        if not args.dry_run and not args.keep_tar:
-            local_archive.unlink(missing_ok=True)
-            shutil.rmtree(payload_dir, ignore_errors=True)
+        if not args.dry_run:
+            if args.mode == "deploy" and not args.keep_tar and not args.archive:
+                local_archive.unlink(missing_ok=True)
+            if args.mode in {"package", "deploy"} and not args.keep_tar:
+                shutil.rmtree(payload_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

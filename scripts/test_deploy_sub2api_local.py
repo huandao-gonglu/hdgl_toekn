@@ -20,20 +20,32 @@ def require_line(output: str, needle: str) -> None:
 
 
 def main() -> None:
+    assert_default_deploy_contract()
+    assert_package_only_contract()
+    assert_publish_only_contract()
+    print("PASS deploy-sub2api-local dry-run contract")
+
+
+def run_dry_run(*args: str) -> str:
     result = subprocess.run(
-        [sys.executable, str(SCRIPT), "--dry-run", "--tag", "test-tag"],
+        [sys.executable, str(SCRIPT), "--dry-run", *args],
         cwd=REPO_ROOT,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         check=False,
     )
-    output = result.stdout
-
     if result.returncode != 0:
-        print(output, file=sys.stderr)
+        print(result.stdout, file=sys.stderr)
         raise SystemExit(result.returncode)
+    return result.stdout
 
+
+def assert_default_deploy_contract() -> None:
+    output = run_dry_run("--tag", "test-tag")
+
+    require_line(output, "Mode:         deploy")
+    require_line(output, "Archive:      ")
     require_line(output, "pnpm --dir frontend install --frozen-lockfile")
     require_line(output, "pnpm --dir frontend run build")
     require_line(output, "test -f backend/internal/web/dist/index.html")
@@ -58,7 +70,45 @@ def main() -> None:
         print(f"unexpected remote go build in output:\n{output}", file=sys.stderr)
         raise SystemExit(1)
 
-    print("PASS deploy-sub2api-local dry-run contract")
+
+def assert_package_only_contract() -> None:
+    output = run_dry_run("--mode", "package", "--tag", "pkg-tag")
+
+    require_line(output, "Mode:         package")
+    require_line(output, "Archive:      ")
+    require_line(output, "pnpm --dir frontend run build")
+    require_line(output, "env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags embed")
+    require_line(output, "tar -czf ")
+
+    forbidden = ["scp -P", "ssh -p", "docker compose up -d sub2api", "curl -fsS"]
+    for needle in forbidden:
+        if needle in output:
+            print(f"unexpected publish command in package-only output ({needle}):\n{output}", file=sys.stderr)
+            raise SystemExit(1)
+
+
+def assert_publish_only_contract() -> None:
+    output = run_dry_run(
+        "--mode",
+        "publish",
+        "--archive",
+        "/tmp/prebuilt-runtime.tgz",
+        "--tag",
+        "pub-tag",
+    )
+
+    require_line(output, "Mode:         publish")
+    require_line(output, "Archive:      /tmp/prebuilt-runtime.tgz")
+    require_line(output, "scp -P 443 /tmp/prebuilt-runtime.tgz root@107.174.48.241:/tmp/prebuilt-runtime.tgz")
+    require_line(output, "docker build -f Dockerfile.runtime -t sub2api-local:pub-tag .")
+    require_line(output, "docker compose up -d sub2api")
+    require_line(output, "curl -fsS https://hdgl.us.ci/health")
+
+    forbidden = ["pnpm --dir frontend", "go build -tags embed", "tar -czf"]
+    for needle in forbidden:
+        if needle in output:
+            print(f"unexpected package command in publish-only output ({needle}):\n{output}", file=sys.stderr)
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":
