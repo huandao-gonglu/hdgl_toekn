@@ -139,3 +139,5 @@ docs/*
 frontend/coverage/
 aicodex
 output/
+scripts/__pycache__/deploy_sub2api_local.cpython-314.pyc
+scripts/__pycache__/test_deploy_sub2api_local.cpython-314.pyc
