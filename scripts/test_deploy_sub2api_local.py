@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 
@@ -20,10 +21,59 @@ def require_line(output: str, needle: str) -> None:
 
 
 def main() -> None:
+    assert_pnpm_command_uses_resolved_pnpm_path()
+    assert_pnpm_command_uses_resolved_corepack_path()
     assert_default_deploy_contract()
     assert_package_only_contract()
     assert_publish_only_contract()
     print("PASS deploy-sub2api-local dry-run contract")
+
+
+def load_deploy_module() -> types.ModuleType:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("deploy_sub2api_local", SCRIPT)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"failed to load {SCRIPT}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def assert_pnpm_command_uses_resolved_pnpm_path() -> None:
+    deploy = load_deploy_module()
+    original_which = deploy.shutil.which
+
+    def fake_which(name: str) -> str | None:
+        if name == "pnpm":
+            return "/opt/homebrew/bin/pnpm"
+        if name == "corepack":
+            raise AssertionError("corepack should not be checked when pnpm exists")
+        return None
+
+    deploy.shutil.which = fake_which
+    try:
+        assert deploy.resolve_pnpm_cmd(dry_run=False) == ["/opt/homebrew/bin/pnpm"]
+    finally:
+        deploy.shutil.which = original_which
+
+
+def assert_pnpm_command_uses_resolved_corepack_path() -> None:
+    deploy = load_deploy_module()
+    original_which = deploy.shutil.which
+
+    def fake_which(name: str) -> str | None:
+        if name == "pnpm":
+            return None
+        if name == "corepack":
+            return r"D:\Program Files\nodejs\corepack.cmd"
+        return None
+
+    deploy.shutil.which = fake_which
+    try:
+        assert deploy.resolve_pnpm_cmd(dry_run=False) == [r"D:\Program Files\nodejs\corepack.cmd", "pnpm"]
+    finally:
+        deploy.shutil.which = original_which
 
 
 def run_dry_run(*args: str) -> str:
@@ -88,6 +138,7 @@ def assert_package_only_contract() -> None:
 
 
 def assert_publish_only_contract() -> None:
+    local_archive = Path("/tmp/prebuilt-runtime.tgz").resolve()
     output = run_dry_run(
         "--mode",
         "publish",
@@ -98,8 +149,9 @@ def assert_publish_only_contract() -> None:
     )
 
     require_line(output, "Mode:         publish")
-    require_line(output, "Archive:      /tmp/prebuilt-runtime.tgz")
-    require_line(output, "scp -P 443 /tmp/prebuilt-runtime.tgz root@107.174.48.241:/tmp/prebuilt-runtime.tgz")
+    require_line(output, f"Archive:      {local_archive}")
+    require_line(output, "scp -P 443")
+    require_line(output, "root@107.174.48.241:/tmp/prebuilt-runtime.tgz")
     require_line(output, "docker build -f Dockerfile.runtime -t sub2api-local:pub-tag .")
     require_line(output, "docker compose up -d sub2api")
     require_line(output, "curl -fsS https://hdgl.us.ci/health")

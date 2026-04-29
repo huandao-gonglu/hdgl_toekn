@@ -103,6 +103,25 @@ def require_cmd(name: str) -> None:
         die(f"missing required command: {name}")
 
 
+def find_cmd(name: str) -> str:
+    path = shutil.which(name)
+    if path is None:
+        die(f"missing required command: {name}")
+    return path
+
+
+def resolve_pnpm_cmd(*, dry_run: bool) -> list[str]:
+    if dry_run:
+        return ["pnpm"]
+
+    pnpm = shutil.which("pnpm")
+    if pnpm is not None:
+        return [pnpm]
+
+    os.environ.setdefault("COREPACK_ENABLE_DOWNLOAD_PROMPT", "0")
+    return [find_cmd("corepack"), "pnpm"]
+
+
 def safe_artifact_name(image_repo: str, image_tag: str) -> str:
     raw = f"{image_repo}-{image_tag}".replace("/", "-").replace(":", "-")
     allowed = set(string.ascii_letters + string.digits + "_.-")
@@ -372,13 +391,14 @@ def main() -> None:
         if args.mode in {"publish", "deploy"}:
             require_cmd("scp")
             require_cmd("ssh")
-        if args.mode in {"package", "deploy"} and not args.skip_frontend_build and shutil.which("pnpm") is None:
-            require_cmd("corepack")
-            os.environ.setdefault("COREPACK_ENABLE_DOWNLOAD_PROMPT", "0")
         if args.mode in {"publish", "deploy"} and not args.no_health_check:
             require_cmd("curl")
 
-    pnpm_cmd = ["pnpm"] if args.dry_run or shutil.which("pnpm") is not None else ["corepack", "pnpm"]
+    pnpm_cmd = (
+        resolve_pnpm_cmd(dry_run=args.dry_run)
+        if args.mode in {"package", "deploy"} and not args.skip_frontend_build
+        else ["pnpm"]
+    )
 
     print(f"Deploy image: {image}")
     print(f"Mode:         {args.mode}")
