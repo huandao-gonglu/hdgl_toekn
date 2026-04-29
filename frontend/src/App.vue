@@ -27,7 +27,13 @@ function updateFavicon(logoUrl: string) {
     link.rel = 'icon'
     document.head.appendChild(link)
   }
-  link.type = logoUrl.endsWith('.svg') ? 'image/svg+xml' : 'image/x-icon'
+  if (logoUrl.endsWith('.svg')) {
+    link.type = 'image/svg+xml'
+  } else if (logoUrl.endsWith('.ico')) {
+    link.type = 'image/x-icon'
+  } else {
+    link.type = 'image/png'
+  }
   link.href = logoUrl
 }
 

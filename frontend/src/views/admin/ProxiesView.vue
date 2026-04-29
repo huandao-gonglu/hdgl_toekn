@@ -893,6 +893,7 @@ import { useClipboard } from '@/composables/useClipboard'
 import { useSwipeSelect } from '@/composables/useSwipeSelect'
 import { useTableSelection } from '@/composables/useTableSelection'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
+import { DEFAULT_EXPORT_PREFIX } from '@/constants/branding'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -1725,7 +1726,7 @@ const handleExportData = async () => {
           }
     )
     const timestamp = formatExportTimestamp()
-    const filename = `sub2api-proxy-${timestamp}.json`
+    const filename = `${DEFAULT_EXPORT_PREFIX}-proxy-${timestamp}.json`
     const blob = new Blob([JSON.stringify(dataPayload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')

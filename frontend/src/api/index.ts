@@ -1,5 +1,5 @@
 /**
- * API Client for Sub2API Backend
+ * API client for the backend
  * Central export point for all API modules
  */
 
