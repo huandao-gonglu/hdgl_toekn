@@ -2827,6 +2827,8 @@ export default {
       openai: {
         baseUrlHint: 'Leave default for official OpenAI API',
         apiKeyHint: 'Your OpenAI API Key',
+        skipAutoResponsesPath: 'Disable auto /responses path suffix',
+        skipAutoResponsesPathHint: 'When enabled, the base URL is used as-is without automatically appending /v1/responses suffix',
         oauthPassthrough: 'Auto passthrough (auth only)',
         oauthPassthroughDesc:
           'When enabled, this OpenAI account uses automatic passthrough: the gateway forwards request/response as-is and only swaps auth, while keeping billing/concurrency/audit and necessary safety filtering.',

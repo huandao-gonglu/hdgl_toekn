@@ -865,6 +865,20 @@
           />
           <p class="input-hint">{{ baseUrlHint }}</p>
         </div>
+
+        <!-- Skip auto /responses path (OpenAI only) -->
+        <div v-if="form.platform === 'openai'">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              v-model="apiKeySkipAutoResponsesPath"
+              type="checkbox"
+              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500"
+            />
+            <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('admin.accounts.openai.skipAutoResponsesPath') }}</span>
+          </label>
+          <p class="input-hint mt-1">{{ t('admin.accounts.openai.skipAutoResponsesPathHint') }}</p>
+        </div>
+
         <div>
           <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
           <input
@@ -3089,6 +3103,7 @@ const accountCategory = ref<'oauth-based' | 'apikey' | 'bedrock'>('oauth-based')
 const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-token'
 const apiKeyBaseUrl = ref('https://api.anthropic.com')
 const apiKeyValue = ref('')
+const apiKeySkipAutoResponsesPath = ref(false)
 const editQuotaLimit = ref<number | null>(null)
 const editQuotaDailyLimit = ref<number | null>(null)
 const editQuotaWeeklyLimit = ref<number | null>(null)
@@ -3429,6 +3444,7 @@ watch(
         : newPlatform === 'gemini'
           ? 'https://generativelanguage.googleapis.com'
           : 'https://api.anthropic.com'
+    apiKeySkipAutoResponsesPath.value = false
     // Clear model-related settings
     allowedModels.value = []
     modelMappings.value = []
@@ -3830,6 +3846,7 @@ const resetForm = () => {
   addMethod.value = 'oauth'
   apiKeyBaseUrl.value = 'https://api.anthropic.com'
   apiKeyValue.value = ''
+  apiKeySkipAutoResponsesPath.value = false
   editQuotaLimit.value = null
   editQuotaDailyLimit.value = null
   editQuotaWeeklyLimit.value = null
@@ -4140,6 +4157,9 @@ const handleSubmit = async () => {
   const credentials: Record<string, unknown> = {
     base_url: apiKeyBaseUrl.value.trim() || defaultBaseUrl,
     api_key: apiKeyValue.value.trim()
+  }
+  if (form.platform === 'openai' && apiKeySkipAutoResponsesPath.value) {
+    credentials.skip_auto_responses_path = true
   }
   if (form.platform === 'gemini') {
     credentials.tier_id = geminiTierAIStudio.value

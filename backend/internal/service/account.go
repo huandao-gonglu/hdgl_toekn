@@ -831,6 +831,21 @@ func (a *Account) IsCustomErrorCodesEnabled() bool {
 	return false
 }
 
+// IsSkipAutoResponsesPath 检查 OpenAI API Key 账号是否跳过 /responses 路径自动注入。
+// 启用后，base_url 原样使用，不会自动追加 /v1/responses 或 /responses 后缀。
+// 适用于自定义 upstream 只支持 /v1/chat/completions 等非 /responses 端点的情况。
+func (a *Account) IsSkipAutoResponsesPath() bool {
+	if !a.IsOpenAI() || a.Type != AccountTypeAPIKey || a.Credentials == nil {
+		return false
+	}
+	if v, ok := a.Credentials["skip_auto_responses_path"]; ok {
+		if enabled, ok := v.(bool); ok {
+			return enabled
+		}
+	}
+	return false
+}
+
 // IsPoolMode 检查 API Key 账号是否启用池模式。
 // 池模式下，上游错误不标记本地账号状态，而是在同一账号上重试。
 func (a *Account) IsPoolMode() bool {

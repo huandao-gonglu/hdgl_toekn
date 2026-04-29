@@ -46,6 +46,20 @@
           />
           <p class="input-hint">{{ baseUrlHint }}</p>
         </div>
+
+        <!-- Skip auto /responses path (OpenAI only) -->
+        <div v-if="account.platform === 'openai'">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              v-model="editSkipAutoResponsesPath"
+              type="checkbox"
+              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500"
+            />
+            <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('admin.accounts.openai.skipAutoResponsesPath') }}</span>
+          </label>
+          <p class="input-hint mt-1">{{ t('admin.accounts.openai.skipAutoResponsesPathHint') }}</p>
+        </div>
+
         <div>
           <label class="input-label">{{ t('admin.accounts.apiKey') }}</label>
           <input
@@ -1980,6 +1994,7 @@ interface TempUnschedRuleForm {
 const submitting = ref(false)
 const editBaseUrl = ref('https://api.anthropic.com')
 const editApiKey = ref('')
+const editSkipAutoResponsesPath = ref(false)
 // Bedrock credentials
 const editBedrockAccessKeyId = ref('')
 const editBedrockSecretAccessKey = ref('')
@@ -2377,6 +2392,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
           ? 'https://generativelanguage.googleapis.com'
           : 'https://api.anthropic.com'
     editBaseUrl.value = (credentials.base_url as string) || platformDefaultUrl
+    editSkipAutoResponsesPath.value = (credentials.skip_auto_responses_path as boolean) || false
 
     // Load model mappings and detect mode
     const existingMappings = credentials.model_mapping as Record<string, string> | undefined
@@ -3031,6 +3047,13 @@ const handleSubmit = async () => {
       } else {
         delete newCredentials.custom_error_codes_enabled
         delete newCredentials.custom_error_codes
+      }
+
+      // Add skip auto responses path setting (OpenAI only)
+      if (props.account.platform === 'openai' && editSkipAutoResponsesPath.value) {
+        newCredentials.skip_auto_responses_path = true
+      } else {
+        delete newCredentials.skip_auto_responses_path
       }
 
       // Add intercept warmup requests setting
