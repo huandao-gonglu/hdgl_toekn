@@ -283,6 +283,11 @@ rm -rf {quote(remote_build_dir)}
 """
 
 
+def run_remote_script(ssh_cmd: list[str], remote_script: str) -> None:
+    normalized_script = remote_script.replace("\r\n", "\n").replace("\r", "\n")
+    subprocess.run(ssh_cmd, input=normalized_script.encode("utf-8"), check=True)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -473,7 +478,7 @@ def main() -> None:
             for line in remote_script.splitlines():
                 print(f"  {line}")
         else:
-            subprocess.run(ssh_cmd, input=remote_script, text=True, check=True)
+            run_remote_script(ssh_cmd, remote_script)
 
         if not args.no_health_check:
             runner.run(["curl", "-fsS", args.health_url])

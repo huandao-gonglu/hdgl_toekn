@@ -23,6 +23,7 @@ def require_line(output: str, needle: str) -> None:
 def main() -> None:
     assert_pnpm_command_uses_resolved_pnpm_path()
     assert_pnpm_command_uses_resolved_corepack_path()
+    assert_remote_script_stdin_uses_lf_bytes()
     assert_default_deploy_contract()
     assert_package_only_contract()
     assert_publish_only_contract()
@@ -74,6 +75,37 @@ def assert_pnpm_command_uses_resolved_corepack_path() -> None:
         assert deploy.resolve_pnpm_cmd(dry_run=False) == [r"D:\Program Files\nodejs\corepack.cmd", "pnpm"]
     finally:
         deploy.shutil.which = original_which
+
+
+def assert_remote_script_stdin_uses_lf_bytes() -> None:
+    deploy = load_deploy_module()
+    original_run = deploy.subprocess.run
+    calls: list[tuple[list[str], dict[str, object]]] = []
+
+    def fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append((args, kwargs))
+        return subprocess.CompletedProcess(args, 0)
+
+    deploy.subprocess.run = fake_run
+    try:
+        deploy.run_remote_script(["ssh", "host", "bash", "-s"], "set -euo pipefail\r\nprintf ok\r\n")
+    finally:
+        deploy.subprocess.run = original_run
+
+    if len(calls) != 1:
+        print(f"expected one subprocess.run call, got {len(calls)}", file=sys.stderr)
+        raise SystemExit(1)
+
+    _args, kwargs = calls[0]
+    if kwargs.get("input") != b"set -euo pipefail\nprintf ok\n":
+        print(f"remote script stdin was not normalized LF bytes: {kwargs.get('input')!r}", file=sys.stderr)
+        raise SystemExit(1)
+    if kwargs.get("text") is not None:
+        print(f"remote script stdin should not use text mode: {kwargs}", file=sys.stderr)
+        raise SystemExit(1)
+    if kwargs.get("check") is not True:
+        print(f"remote script subprocess should still check errors: {kwargs}", file=sys.stderr)
+        raise SystemExit(1)
 
 
 def run_dry_run(*args: str) -> str:
