@@ -4068,8 +4068,8 @@
             </p>
           </div>
           <div class="space-y-5 p-6">
-            <div class="flex items-center justify-between">
-              <div>
+            <div class="flex items-center justify-between gap-4">
+              <div class="min-w-0 flex-1 pr-4">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {{ t('admin.settings.features.channelMonitor.enabled') }}
                 </label>
@@ -4118,8 +4118,8 @@
             </p>
           </div>
           <div class="space-y-5 p-6">
-            <div class="flex items-center justify-between">
-              <div>
+            <div class="flex items-center justify-between gap-4">
+              <div class="min-w-0 flex-1 pr-4">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {{ t('admin.settings.features.availableChannels.enabled') }}
                 </label>
@@ -4143,8 +4143,8 @@
             </p>
           </div>
           <div class="space-y-5 p-6">
-            <div class="flex items-center justify-between">
-              <div>
+            <div class="flex items-center justify-between gap-4">
+              <div class="min-w-0 flex-1 pr-4">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {{ t('admin.settings.features.affiliate.enabled') }}
                 </label>
