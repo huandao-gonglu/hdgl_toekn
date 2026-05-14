@@ -367,7 +367,9 @@ def main() -> None:
     temp_parent = Path(os.environ.get("TMPDIR") or os.environ.get("TEMP") or os.environ.get("TMP") or "/tmp")
     payload_dir = temp_parent / f"{safe_name}-payload"
     local_archive = Path(args.archive).expanduser() if args.archive else temp_parent / f"{safe_name}-runtime.tgz"
-    if not local_archive.is_absolute():
+    if local_archive.is_absolute():
+        local_archive = local_archive.resolve()
+    else:
         local_archive = (REPO_ROOT / local_archive).resolve()
     remote_tmp_dir = args.remote_tmp_dir.rstrip("/")
     remote_archive = f"{remote_tmp_dir}/{local_archive.name}"
