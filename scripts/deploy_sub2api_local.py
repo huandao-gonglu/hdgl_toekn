@@ -483,7 +483,7 @@ def main() -> None:
             run_remote_script(ssh_cmd, remote_script)
 
         if not args.no_health_check:
-            runner.run(["curl", "-fsS", args.health_url])
+            runner.run(["curl", "-fsS", "--retry", "12", "--retry-delay", "5", "--retry-all-errors", args.health_url])
             if not args.dry_run:
                 print()
     finally:

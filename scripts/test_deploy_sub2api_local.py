@@ -140,7 +140,7 @@ def assert_default_deploy_contract() -> None:
     require_line(output, "image: sub2api-local:test-tag")
     require_line(output, "docker compose up -d sub2api")
     require_line(output, "docker compose ps sub2api")
-    require_line(output, "curl -fsS https://hdgl.us.ci/health")
+    require_line(output, "curl -fsS --retry 12 --retry-delay 5 --retry-all-errors https://hdgl.us.ci/health")
 
     if "Dockerfile.server-go-build" in output:
         print(f"unexpected remote Go build Dockerfile in output:\n{output}", file=sys.stderr)
@@ -186,7 +186,7 @@ def assert_publish_only_contract() -> None:
     require_line(output, "root@107.174.48.241:/tmp/prebuilt-runtime.tgz")
     require_line(output, "docker build -f Dockerfile.runtime -t sub2api-local:pub-tag .")
     require_line(output, "docker compose up -d sub2api")
-    require_line(output, "curl -fsS https://hdgl.us.ci/health")
+    require_line(output, "curl -fsS --retry 12 --retry-delay 5 --retry-all-errors https://hdgl.us.ci/health")
 
     forbidden = ["pnpm --dir frontend", "go build -tags embed", "tar -czf"]
     for needle in forbidden:
