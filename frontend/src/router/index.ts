@@ -10,6 +10,8 @@ import { useAdminSettingsStore } from '@/stores/adminSettings'
 import { useNavigationLoadingState } from '@/composables/useNavigationLoading'
 import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 import { DEFAULT_SITE_NAME } from '@/constants/branding'
+import { getSetupStatus } from '@/api/setup'
+import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveDocumentTitle } from './title'
 
 /**
@@ -69,6 +71,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/auth/callback',
     name: 'OAuthCallback',
+    alias: '/auth/oauth/callback',
     component: () => import('@/views/auth/OAuthCallbackView.vue'),
     meta: {
       requiresAuth: false,
@@ -107,6 +110,25 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/auth/dingtalk/callback',
+    name: 'DingTalkOAuthCallback',
+    component: () => import('@/views/auth/DingTalkCallbackView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'DingTalk OAuth Callback',
+      titleKey: 'auth.dingtalkCallbackPageTitle'
+    }
+  },
+  {
+    path: '/auth/dingtalk/email-completion',
+    name: 'dingtalk-email-completion',
+    component: () => import('@/views/auth/DingTalkEmailCompletionView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'DingTalk Email Completion'
+    }
+  },
+  {
     path: '/auth/oidc/callback',
     name: 'OIDCOAuthCallback',
     component: () => import('@/views/auth/OidcCallbackView.vue'),
@@ -142,6 +164,15 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: false,
       title: 'Key Usage',
+    }
+  },
+  {
+    path: '/legal/:documentId',
+    name: 'LegalDocument',
+    component: () => import('@/views/public/LegalDocumentView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Legal Document'
     }
   },
 
@@ -304,6 +335,18 @@ const routes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'Stripe Payment',
       titleKey: 'payment.stripePay',
+      requiresPayment: false
+    }
+  },
+  {
+    path: '/payment/airwallex',
+    name: 'AirwallexPayment',
+    component: () => import('@/views/user/AirwallexPaymentView.vue'),
+    meta: {
+      requiresAuth: false,
+      requiresAdmin: false,
+      title: 'Airwallex Payment',
+      titleKey: 'payment.airwallexPay',
       requiresPayment: false
     }
   },
@@ -507,6 +550,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/risk-control',
+    name: 'AdminRiskControl',
+    component: () => import('@/views/admin/RiskControlView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Risk Control',
+      titleKey: 'admin.riskControl.title',
+      descriptionKey: 'admin.riskControl.description',
+      requiresRiskControl: true
+    }
+  },
+  {
     path: '/admin/usage',
     name: 'AdminUsage',
     component: () => import('@/views/admin/UsageView.vue'),
@@ -516,6 +572,46 @@ const routes: RouteRecordRaw[] = [
       title: 'Usage Records',
       titleKey: 'admin.usage.title',
       descriptionKey: 'admin.usage.description'
+    }
+  },
+  {
+    path: '/admin/affiliates',
+    redirect: '/admin/affiliates/invites'
+  },
+  {
+    path: '/admin/affiliates/invites',
+    name: 'AdminAffiliateInvites',
+    component: () => import('@/views/admin/affiliates/AdminAffiliateInvitesView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Affiliate Invite Records',
+      titleKey: 'nav.affiliateInviteRecords',
+      descriptionKey: 'admin.affiliates.invitesDescription'
+    }
+  },
+  {
+    path: '/admin/affiliates/rebates',
+    name: 'AdminAffiliateRebates',
+    component: () => import('@/views/admin/affiliates/AdminAffiliateRebatesView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Affiliate Rebate Records',
+      titleKey: 'nav.affiliateRebateRecords',
+      descriptionKey: 'admin.affiliates.rebatesDescription'
+    }
+  },
+  {
+    path: '/admin/affiliates/transfers',
+    name: 'AdminAffiliateTransfers',
+    component: () => import('@/views/admin/affiliates/AdminAffiliateTransfersView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Affiliate Transfer Records',
+      titleKey: 'nav.affiliateTransferRecords',
+      descriptionKey: 'admin.affiliates.transfersDescription'
     }
   },
 
@@ -594,10 +690,12 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result']
+const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal']
 const BACKEND_MODE_CALLBACK_PATHS = [
   '/auth/callback',
   '/auth/linuxdo/callback',
+  '/auth/dingtalk/callback',
+  '/auth/dingtalk/email-completion',
   '/auth/oidc/callback',
   '/auth/wechat/callback',
   '/auth/wechat/payment/callback',
@@ -620,7 +718,7 @@ function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: bo
   return false
 }
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   // 开始导航加载状态
   navigationLoading.startNavigation()
 
@@ -654,6 +752,18 @@ router.beforeEach((to, _from, next) => {
   // Check if route requires authentication
   const requiresAuth = to.meta.requiresAuth !== false // Default to true
   const requiresAdmin = to.meta.requiresAdmin === true
+
+  if (to.path === '/setup') {
+    try {
+      const status = await getSetupStatus()
+      if (!status.needs_setup) {
+        next(resolveCompletedSetupRedirectPath(authStore.isAuthenticated, authStore.isAdmin))
+        return
+      }
+    } catch {
+      // If setup status cannot be determined, keep the setup page reachable.
+    }
+  }
 
   // If route doesn't require auth, allow access
   if (!requiresAuth) {
@@ -704,6 +814,14 @@ router.beforeEach((to, _from, next) => {
     const paymentEnabled = appStore.cachedPublicSettings?.payment_enabled
     if (!paymentEnabled) {
       next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+      return
+    }
+  }
+
+  if (to.meta.requiresRiskControl) {
+    const riskControlEnabled = appStore.cachedPublicSettings?.risk_control_enabled === true
+    if (!riskControlEnabled) {
+      next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
       return
     }
   }

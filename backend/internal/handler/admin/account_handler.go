@@ -528,6 +528,10 @@ func (h *AccountHandler) Create(c *gin.Context) {
 	// 确定是否跳过混合渠道检查
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
 
+	// 捕获闭包内创建的账号引用，用于创建成功后触发异步探测。
+	// 幂等重放时闭包不会执行 → createdAccount 为 nil → 不重复调度。
+	var createdAccount *service.Account
+
 	result, err := executeAdminIdempotent(c, "admin.accounts.create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		account, execErr := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
 			Name:                  req.Name,
@@ -549,6 +553,7 @@ func (h *AccountHandler) Create(c *gin.Context) {
 		if execErr != nil {
 			return nil, execErr
 		}
+		createdAccount = account
 		// Antigravity OAuth: 新账号直接设置隐私
 		h.adminService.ForceAntigravityPrivacy(ctx, account)
 		// OpenAI OAuth: 新账号直接设置隐私
@@ -577,6 +582,9 @@ func (h *AccountHandler) Create(c *gin.Context) {
 	if result != nil && result.Replayed {
 		c.Header("X-Idempotency-Replayed", "true")
 	}
+	// OpenAI APIKey 账号创建后异步探测上游 /v1/responses 能力。
+	// 探测失败不影响账号创建响应。
+	h.scheduleOpenAIResponsesProbe(createdAccount)
 	response.Success(c, result.Data)
 }
 
@@ -637,7 +645,37 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		return
 	}
 
+	// OpenAI APIKey: credentials 修改后重新探测上游能力（base_url/api_key 可能变更）。
+	// 异步执行，探测失败不影响账号更新响应。
+	if len(req.Credentials) > 0 {
+		h.scheduleOpenAIResponsesProbe(account)
+	}
+
 	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
+}
+
+// scheduleOpenAIResponsesProbe 异步触发 OpenAI APIKey 账号的 Responses API 能力探测。
+//
+// 仅对 platform=openai && type=apikey 账号生效；其他账号无操作。
+// 探测本身在 goroutine 中执行（会发一次 HTTP 请求到上游），不会阻塞
+// 当前请求。探测错误仅记录日志，不向上下文传播：探测失败时标记保持缺失，
+// 网关会按"现状即证据"默认走 Responses。
+func (h *AccountHandler) scheduleOpenAIResponsesProbe(account *service.Account) {
+	if account == nil || account.Platform != service.PlatformOpenAI || account.Type != service.AccountTypeAPIKey {
+		return
+	}
+	if h.accountTestService == nil {
+		return
+	}
+	accountID := account.ID
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("openai_responses_probe_panic", "account_id", accountID, "recover", r)
+			}
+		}()
+		h.accountTestService.ProbeOpenAIAPIKeyResponsesSupport(context.Background(), accountID)
+	}()
 }
 
 // Delete handles deleting an account
@@ -1231,6 +1269,8 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 					openaiPrivacyAccounts = append(openaiPrivacyAccounts, account)
 				}
 			}
+			// OpenAI APIKey 账号异步探测 /v1/responses 能力。
+			h.scheduleOpenAIResponsesProbe(account)
 			success++
 			results = append(results, gin.H{
 				"name":    item.Name,
@@ -1603,7 +1643,7 @@ func (h *OAuthHandler) SetupTokenCookieAuth(c *gin.Context) {
 }
 
 // GetUsage handles getting account usage information
-// GET /api/v1/admin/accounts/:id/usage?source=passive|active
+// GET /api/v1/admin/accounts/:id/usage?source=passive|active&force=true
 func (h *AccountHandler) GetUsage(c *gin.Context) {
 	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -1612,12 +1652,13 @@ func (h *AccountHandler) GetUsage(c *gin.Context) {
 	}
 
 	source := c.DefaultQuery("source", "active")
+	force := c.Query("force") == "true"
 
 	var usage *service.UsageInfo
 	if source == "passive" {
 		usage, err = h.accountUsageService.GetPassiveUsage(c.Request.Context(), accountID)
 	} else {
-		usage, err = h.accountUsageService.GetUsage(c.Request.Context(), accountID)
+		usage, err = h.accountUsageService.GetUsage(c.Request.Context(), accountID, force)
 	}
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -1952,6 +1993,48 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 	}
 
 	response.Success(c, models)
+}
+
+// SyncUpstreamModels handles syncing live supported models from an account's upstream.
+// POST /api/v1/admin/accounts/:id/models/sync-upstream
+func (h *AccountHandler) SyncUpstreamModels(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+
+	account, err := h.adminService.GetAccount(c.Request.Context(), accountID)
+	if err != nil {
+		response.NotFound(c, "Account not found")
+		return
+	}
+
+	if h.accountTestService == nil {
+		response.InternalError(c, "Account test service is not configured")
+		return
+	}
+
+	models, err := h.accountTestService.FetchUpstreamSupportedModels(c.Request.Context(), account)
+	if err != nil {
+		var syncErr *service.UpstreamModelSyncError
+		if errors.As(err, &syncErr) {
+			switch syncErr.Kind {
+			case service.UpstreamModelSyncErrorConfiguration, service.UpstreamModelSyncErrorUnsupported:
+				response.BadRequest(c, syncErr.SafeMessage())
+			default:
+				slog.Warn("sync_upstream_models_failed", "account_id", accountID, "kind", syncErr.Kind)
+				response.Error(c, http.StatusBadGateway, syncErr.SafeMessage())
+			}
+			return
+		}
+
+		slog.Warn("sync_upstream_models_failed", "account_id", accountID)
+		response.Error(c, http.StatusBadGateway, "Failed to sync upstream models from upstream")
+		return
+	}
+
+	response.Success(c, gin.H{"models": models})
 }
 
 // SetPrivacy handles setting privacy for a single OpenAI/Antigravity OAuth account

@@ -449,9 +449,67 @@ func buildSchedulerMetadataAccount(account service.Account) service.Account {
 		SessionWindowStart:      account.SessionWindowStart,
 		SessionWindowEnd:        account.SessionWindowEnd,
 		SessionWindowStatus:     account.SessionWindowStatus,
+		AccountGroups:           filterSchedulerAccountGroups(account.AccountGroups),
+		GroupIDs:                filterSchedulerGroupIDs(account.GroupIDs, account.AccountGroups),
 		Credentials:             filterSchedulerCredentials(account.Credentials),
 		Extra:                   filterSchedulerExtra(account.Extra),
 	}
+}
+
+func filterSchedulerAccountGroups(accountGroups []service.AccountGroup) []service.AccountGroup {
+	if len(accountGroups) == 0 {
+		return nil
+	}
+
+	filtered := make([]service.AccountGroup, 0, len(accountGroups))
+	for _, ag := range accountGroups {
+		if ag.GroupID <= 0 {
+			continue
+		}
+		filtered = append(filtered, service.AccountGroup{
+			AccountID: ag.AccountID,
+			GroupID:   ag.GroupID,
+			Priority:  ag.Priority,
+			CreatedAt: ag.CreatedAt,
+		})
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	return filtered
+}
+
+func filterSchedulerGroupIDs(groupIDs []int64, accountGroups []service.AccountGroup) []int64 {
+	if len(groupIDs) == 0 && len(accountGroups) == 0 {
+		return nil
+	}
+
+	seen := make(map[int64]struct{}, len(groupIDs)+len(accountGroups))
+	filtered := make([]int64, 0, len(groupIDs)+len(accountGroups))
+	for _, id := range groupIDs {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		filtered = append(filtered, id)
+	}
+	for _, ag := range accountGroups {
+		if ag.GroupID <= 0 {
+			continue
+		}
+		if _, ok := seen[ag.GroupID]; ok {
+			continue
+		}
+		seen[ag.GroupID] = struct{}{}
+		filtered = append(filtered, ag.GroupID)
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	return filtered
 }
 
 func filterSchedulerCredentials(credentials map[string]any) map[string]any {
@@ -488,6 +546,8 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"responses_websockets_v2_enabled",
 		"openai_ws_enabled",
 		"openai_ws_force_http",
+		"openai_responses_mode",
+		"openai_responses_supported",
 	}
 	filtered := make(map[string]any)
 	for _, key := range keys {
